@@ -218,7 +218,7 @@ public:
         StringTable().ReloadLanguage();
 
         if (g_pGamePersistent && g_pGamePersistent->IsMainMenuActive())
-            MainMenu()->SetLanguageChanged(true);
+            MainMenu()->OnUIReset();
 
         if (!g_pGameLevel)
             return;
@@ -789,7 +789,7 @@ class CCC_FlushLog : public IConsole_Command
 {
 public:
     CCC_FlushLog(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = true; };
-    virtual void Execute(LPCSTR /**args/**/)
+    virtual void Execute(LPCSTR /**args**/)
     {
         FlushLog();
         Msg("* Log file has been saved successfully!");
@@ -1091,7 +1091,7 @@ class CCC_DbgPhTrackObj : public CCC_String
 {
 public:
     CCC_DbgPhTrackObj(LPCSTR N) : CCC_String(N, s_dbg_trace_obj_name, sizeof(s_dbg_trace_obj_name)){};
-    virtual void Execute(LPCSTR args /**/)
+    virtual void Execute(LPCSTR args)
     {
         CCC_String::Execute(args);
         if (!xr_strcmp(args, "none"))
@@ -1379,6 +1379,19 @@ public:
     }
 };
 
+extern void SetupUIStyle();
+class CCC_UIStyle : public CCC_Token
+{
+public:
+    CCC_UIStyle(pcstr name) : CCC_Token(name, &UIStyleID, UIStyleToken.data()) {}
+
+    void Execute(pcstr args)
+    {
+        CCC_Token::Execute(args);
+        SetupUIStyle();
+    }
+};
+
 class CCC_UIRestart : public IConsole_Command
 {
 public:
@@ -1386,7 +1399,19 @@ public:
 
     void Execute(pcstr /*args*/) override
     {
+        // Hack: activate main menu to prevent crash
+        // I don't know why it crashes while in the game
+        bool shouldHideMainMenu = false;
+        if (g_pGamePersistent && g_pGamePersistent->m_pMainMenu)
+        {
+            shouldHideMainMenu = !g_pGamePersistent->m_pMainMenu->IsActive();
+            g_pGamePersistent->m_pMainMenu->Activate(true);
+        }
+
         Device.seqUIReset.Process();
+
+        if (shouldHideMainMenu)
+            g_pGamePersistent->m_pMainMenu->Activate(false);
     }
 };
 
@@ -1569,7 +1594,7 @@ class CCC_Crash : public IConsole_Command
 {
 public:
     CCC_Crash(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = true; };
-    virtual void Execute(LPCSTR /**args/**/)
+    virtual void Execute(LPCSTR /**args**/)
     {
         VERIFY3(false, "This is a test crash", "Do not post it as a bug");
         int* pointer = 0;
@@ -2237,8 +2262,8 @@ void CCC_RegisterCommands()
     CMD4(CCC_Float, "con_sensitive", &g_console_sensitive, 0.01f, 1.0f);
     CMD4(CCC_Integer, "wpn_aim_toggle", &b_toggle_weapon_aim, 0, 1);
 
+    CMD1(CCC_UIStyle, "ui_style");
     CMD1(CCC_UIRestart, "ui_restart");
-    CMD3(CCC_Token, "ui_style", &UIStyleID, UIStyleToken.data());
 
 #ifdef DEBUG
     CMD4(CCC_Float, "ai_smart_cover_animation_speed_factor", &g_smart_cover_animation_speed_factor, .1f, 10.f);

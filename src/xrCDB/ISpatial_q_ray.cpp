@@ -2,7 +2,10 @@
 #include "ISpatial.h"
 #include "xrCore/_fbox.h"
 #include "xrCore/Threading/Lock.hpp"
+#include "xrCore/Threading/ScopeLock.hpp"
+
 #include "SDL.h"
+
 #pragma warning(push)
 #pragma warning(disable : 4995)
 #if defined(XR_ARM64)
@@ -336,7 +339,7 @@ public:
 void ISpatial_DB::q_ray(
     xr_vector<ISpatial*>& R, u32 _o, u32 _mask_and, const Fvector& _start, const Fvector& _dir, float _range)
 {
-    pcs->Enter();
+    ScopeLock scope(&cs);
     Stats.Query.Begin();
     q_result = &R;
     q_result->clear();
@@ -399,5 +402,4 @@ void ISpatial_DB::q_ray(
         }
     }
     Stats.Query.End();
-    pcs->Leave();
 }

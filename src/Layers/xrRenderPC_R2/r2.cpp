@@ -287,6 +287,7 @@ void CRender::create()
     o.depth16 = (strstr(Core.Params, "-depth16")) ? TRUE : FALSE;
     o.noshadows = (strstr(Core.Params, "-noshadows")) ? TRUE : FALSE;
     o.Tshadows = (strstr(Core.Params, "-tsh")) ? TRUE : FALSE;
+    o.oldshadowcascades = ps_r2_ls_flags_ext.test(R2FLAGEXT_SUN_OLD);
     o.mblur = (strstr(Core.Params, "-mblur")) ? TRUE : FALSE;
     o.distortion_enabled = (strstr(Core.Params, "-nodistort")) ? FALSE : TRUE;
     o.distortion = o.distortion_enabled;
@@ -414,7 +415,7 @@ void CRender::BeforeFrame()
     if (IGame_Persistent::MainMenuActiveOrLevelNotExist())
         return;
     // MT-HOM (@front)
-    TaskScheduler->AddTask("CHOM::MT_RENDER", { &HOM, &CHOM::MT_RENDER });
+    Device.seqParallel.insert(Device.seqParallel.begin(), fastdelegate::FastDelegate0<>(&HOM, &CHOM::MT_RENDER));
 }
 
 void CRender::OnFrame()
@@ -425,9 +426,8 @@ void CRender::OnFrame()
     if (ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
     {
         // MT-details (@front)
-        TaskScheduler->AddTask("CDetailManager::MT_CALC",
-            { Details, &CDetailManager::MT_CALC },
-            { &HOM, &CHOM::MT_Sync });
+        Device.seqParallel.insert(
+            Device.seqParallel.begin(), fastdelegate::FastDelegate0<>(Details, &CDetailManager::MT_CALC));
     }
 }
 

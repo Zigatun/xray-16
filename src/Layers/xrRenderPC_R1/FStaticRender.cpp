@@ -155,7 +155,7 @@ void CRender::BeforeFrame()
     if (IGame_Persistent::MainMenuActiveOrLevelNotExist())
         return;
     // MT-HOM (@front)
-    TaskScheduler->AddTask("CHOM::MT_RENDER", { &HOM, &CHOM::MT_RENDER });
+    Device.seqParallel.insert(Device.seqParallel.begin(), fastdelegate::FastDelegate0<>(&HOM, &CHOM::MT_RENDER));
 }
 
 void CRender::OnFrame()
@@ -166,9 +166,8 @@ void CRender::OnFrame()
     if (ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
     {
         // MT-details (@front)
-        TaskScheduler->AddTask("CDetailManager::MT_CALC",
-            { Details, &CDetailManager::MT_CALC },
-            { &HOM, &CHOM::MT_Sync });
+        Device.seqParallel.insert(
+            Device.seqParallel.begin(), fastdelegate::FastDelegate0<>(Details, &CDetailManager::MT_CALC));
     }
 }
 
@@ -378,7 +377,7 @@ void CRender::apply_object(IRenderable* O)
 {
     if (nullptr == O)
         return;
-    if (PHASE_NORMAL == phase && O->renderable_ROS())
+    if (O->renderable_ROS())
     {
         CROS_impl& LT = *((CROS_impl*)O->GetRenderData().pROS);
         VERIFY(dynamic_cast<IGameObject*>(O) || dynamic_cast<CPS_Instance*>(O));
@@ -507,6 +506,7 @@ void CRender::Calculate()
 
     // Main process
     marker++;
+    set_Object(nullptr);
     if (pLastSector)
     {
         // Traverse sector/portal structure
@@ -537,7 +537,6 @@ void CRender::Calculate()
             std::sort(lstRenderables.begin(), lstRenderables.end(), pred_sp_sort);
 
             // Determine visibility for dynamic part of scene
-            set_Object(nullptr);
             g_hud->Render_First(); // R1 shadows
             g_hud->Render_Last();
             u32 uID_LTRACK = 0xffffffff;
@@ -614,7 +613,6 @@ void CRender::Calculate()
                                 T->update(renderable);
                             }
                             renderable->renderable_Render(renderable);
-                            set_Object(nullptr); //? is it needed at all
                         }
                         break; // exit loop on frustums
                     }
@@ -646,10 +644,6 @@ void CRender::Calculate()
         BasicStats.Projectors.Begin();
         L_Projector->calculate();
         BasicStats.Projectors.End();
-    }
-    else
-    {
-        set_Object(nullptr);
     }
 
     // End calc

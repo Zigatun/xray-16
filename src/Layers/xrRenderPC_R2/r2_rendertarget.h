@@ -23,13 +23,11 @@ public:
     IBlender* b_occq;
     IBlender* b_accum_mask;
     IBlender* b_accum_direct;
-    IBlender* b_accum_direct_cascade;
     IBlender* b_accum_point;
     IBlender* b_accum_spot;
     IBlender* b_accum_reflected;
     IBlender* b_bloom;
     IBlender* b_ssao;
-    IBlender* b_fxaa;
     IBlender* b_luminance;
     IBlender* b_combine;
 
@@ -92,9 +90,7 @@ private:
     // Accum
     ref_shader s_accum_mask;
     ref_shader s_accum_direct;
-    ref_shader s_accum_direct_cascade;
     ref_shader s_accum_direct_volumetric;
-    ref_shader s_accum_direct_volumetric_cascade;
     ref_shader s_accum_point;
     ref_shader s_accum_spot;
     ref_shader s_accum_reflected;
@@ -121,10 +117,6 @@ private:
     ref_shader s_ssao;
     ref_rt rt_ssao_temp;
     ref_rt rt_half_depth;
-
-    //FXAA
-    ref_shader s_fxaa;
-    ref_geom g_fxaa;
 
     // Bloom
     ref_geom g_bloom_build;
@@ -184,6 +176,8 @@ private:
 public:
     CRenderTarget();
     ~CRenderTarget();
+    void reinit_cascades();
+
     void accum_point_geom_create();
     void accum_point_geom_destroy();
     void accum_omnip_geom_create();
@@ -209,7 +203,6 @@ public:
     void u_DBT_disable();
 
     void phase_ssao();
-    void phase_fxaa();
     void phase_downsamp();
     void phase_scene_prepare();
     void phase_scene_begin();

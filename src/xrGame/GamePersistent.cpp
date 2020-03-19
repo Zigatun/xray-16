@@ -72,23 +72,31 @@ void FillUIStyleToken()
 }
 
 bool defaultUIStyle = true;
-
 void SetupUIStyle()
 {
     if (UIStyleID == 0)
+    {
+        if (!defaultUIStyle)
+        {
+            xr_free(UI_PATH);
+            xr_free(UI_PATH_WITH_DELIMITER);
+        }
+        UI_PATH = UI_PATH_DEFAULT;
+        UI_PATH_WITH_DELIMITER = UI_PATH_DEFAULT_WITH_DELIMITER;
+        defaultUIStyle = true;
         return;
+    }
 
     pcstr selectedStyle = nullptr;
     for (const auto& token : UIStyleToken)
         if (token.id == UIStyleID)
             selectedStyle = token.name;
 
-    string128 selectedStylePath;
-    strconcat(sizeof(selectedStylePath), selectedStylePath, UI_PATH, DELIMITER "styles" DELIMITER, selectedStyle);
-
+    string_path selectedStylePath;
+    strconcat(selectedStylePath, UI_PATH_DEFAULT, DELIMITER "styles" DELIMITER, selectedStyle);
     UI_PATH = xr_strdup(selectedStylePath);
 
-    strconcat(sizeof(selectedStylePath), selectedStylePath, selectedStylePath, DELIMITER);
+    xr_strcat(selectedStylePath, DELIMITER);
     UI_PATH_WITH_DELIMITER = xr_strdup(selectedStylePath);
 
     defaultUIStyle = false;
@@ -298,6 +306,16 @@ LPCSTR GameTypeToString(EGameIDs gt, bool bShort)
     }
 }
 
+LPCSTR GameTypeToStringEx(u32 gt, bool bShort)
+{
+    switch (gt)
+    {
+    case eGameIDTeamDeathmatch_SoC: gt = eGameIDTeamDeathmatch; break;
+    case eGameIDArtefactHunt_SoC: gt = eGameIDArtefactHunt; break;
+    }
+    return GameTypeToString(static_cast<EGameIDs>(gt), bShort);
+}
+
 void CGamePersistent::UpdateGameType()
 {
     inherited::UpdateGameType();
@@ -497,22 +515,22 @@ bool allow_intro()
 
 void CGamePersistent::start_logo_intro()
 {
-    if(!allow_intro()) // TODO this is dirty hack, rewrite!
+    if (!allow_intro()) // TODO this is dirty hack, rewrite!
     {
-        m_intro_event = 0;
+        m_intro_event = nullptr;
         Console->Execute("main_menu on");
         return;
     }
 
     if (Device.dwPrecacheFrame == 0)
     {
-        m_intro_event.bind(this, &CGamePersistent::update_logo_intro);
+        m_intro_event = nullptr;
         if (!GEnv.isDedicatedServer && 0 == xr_strlen(m_game_params.m_game_or_spawn) && NULL == g_pGameLevel)
         {
             VERIFY(NULL == m_intro);
             m_intro = new CUISequencer();
+            m_intro->m_on_destroy_event.bind(this, &CGamePersistent::update_logo_intro);
             m_intro->Start("intro_logo");
-            Msg("intro_start intro_logo");
             Console->Hide();
         }
     }
@@ -520,17 +538,8 @@ void CGamePersistent::start_logo_intro()
 
 void CGamePersistent::update_logo_intro()
 {
-    if (m_intro && (false == m_intro->IsActive()))
-    {
-        m_intro_event = 0;
-        xr_delete(m_intro);
-        Msg("intro_delete ::update_logo_intro");
-        Console->Execute("main_menu on");
-    }
-    else if (!m_intro)
-    {
-        m_intro_event = 0;
-    }
+    xr_delete(m_intro);
+    Console->Execute("main_menu on");
 }
 
 extern int g_keypress_on_start;
@@ -538,44 +547,40 @@ void CGamePersistent::game_loaded()
 {
     if (Device.dwPrecacheFrame <= 2)
     {
+        m_intro_event = nullptr;
         if (g_pGameLevel && g_pGameLevel->bReady && (allow_intro() && g_keypress_on_start) &&
             load_screen_renderer.b_need_user_input && m_game_params.m_e_game_type == eGameIDSingle)
         {
             VERIFY(NULL == m_intro);
-            Msg("intro_start game_loaded");
             m_intro = new CUISequencer();
             m_intro->m_on_destroy_event.bind(this, &CGamePersistent::update_game_loaded);
-            m_intro->Start("game_loaded");
+            if (!m_intro->Start("game_loaded"))
+                m_intro->Destroy();
         }
-        m_intro_event = 0;
     }
 }
 
 void CGamePersistent::update_game_loaded()
 {
     xr_delete(m_intro);
-    Msg("intro_delete ::update_game_loaded");
     start_game_intro();
 }
 
 void CGamePersistent::start_game_intro()
 {
-    load_screen_renderer.stop();
-
     if (!allow_intro())
     {
-        m_intro_event = 0;
         return;
     }
 
     if (g_pGameLevel && g_pGameLevel->bReady && Device.dwPrecacheFrame <= 2)
     {
-        m_intro_event.bind(this, &CGamePersistent::update_game_intro);
         if (0 == xr_stricmp(m_game_params.m_new_or_load, "new"))
         {
             VERIFY(NULL == m_intro);
             Log("intro_start intro_game");
             m_intro = new CUISequencer();
+            m_intro->m_on_destroy_event.bind(this, &CGamePersistent::update_game_intro);
             m_intro->Start("intro_game");
         }
     }
@@ -583,16 +588,7 @@ void CGamePersistent::start_game_intro()
 
 void CGamePersistent::update_game_intro()
 {
-    if (m_intro && (false == m_intro->IsActive()))
-    {
-        xr_delete(m_intro);
-        Msg("intro_delete ::update_game_intro");
-        m_intro_event = 0;
-    }
-    else if (!m_intro)
-    {
-        m_intro_event = 0;
-    }
+    xr_delete(m_intro);
 }
 
 extern CUISequencer* g_tutorial;
